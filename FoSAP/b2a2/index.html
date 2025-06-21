@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFA zu DFA Konverter</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- vis-network Bibliothek -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+</head>
+<body>
+    <h1>NFA zu DFA Konverter</h1>
+
+    <div class="container">
+        <!-- NFA Editor Bereich -->
+        <div class="editor-area">
+            <h2>NFA Editor</h2>
+            <div class="controls">
+                <button id="add-state-btn">Zustand Hinzufügen</button>
+                <input type="text" id="alphabet-input" placeholder="Alphabet (z.B. a,b)">
+                <button id="set-start-btn">Als Startzustand</button>
+                <button id="toggle-final-btn">Finalen Zustand Umschalten</button>
+                <p class="info">Kante: Klicke auf Start-Knoten, dann auf End-Knoten. Symbol eingeben (leer für ε).</p>
+                 <p class="info">Auswahl: Klicke auf Knoten/Kante. Entf zum Löschen.</p>
+            </div>
+            <div id="nfa-graph"></div>
+             <button id="convert-btn">NFA zu DFA Konvertieren</button>
+        </div>
+
+        <!-- DFA Anzeige Bereich -->
+        <div class="output-area">
+            <h2>Resultierender DFA</h2>
+            <div id="dfa-graph"></div>
+            <h3>Textuelle Repräsentation</h3>
+            <pre id="dfa-text"></pre>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

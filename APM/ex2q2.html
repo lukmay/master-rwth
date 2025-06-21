@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TS Region Finder & Checks</title>
+    <meta charset="UTF-8">
+    <!-- Import vis-network library CSS -->
+    <link href="https://unpkg.com/vis-network/styles/vis-network.min.css" rel="stylesheet" type="text/css" />
+    <!-- Import vis-network library JS -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+    <style>
+        /* --- Start Embedded CSS --- */
+        :root {
+            --primary-bg: #f8f9fa;
+            --secondary-bg: #ffffff;
+            --text-color: #343a40;
+            --heading-color: #2c3e50;
+            --border-color: #dee2e6;
+            --border-light-color: #e9ecef;
+            --button-bg: #f8f9fa;
+            --button-hover-bg: #e9ecef;
+            --button-active-bg: #dee2e6;
+            --button-border: #adb5bd;
+            --accent-color: #007bff;
+            --accent-light: #cce5ff;
+            --error-color: #dc3545;
+            --success-color: #28a745;
+            --monospace-font: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 15px;
+            background-color: var(--primary-bg);
+            color: var(--text-color);
+            line-height: 1.5;
+        }
+
+        h1, h2, h3 {
+             margin-top: 15px; /* Increased top margin */
+             margin-bottom: 10px;
+             color: var(--heading-color);
+             font-weight: 500; /* Slightly lighter weight */
+        }
+         h3 {
+             margin-top: 20px;
+             font-size: 1.1em;
+             border-bottom: 1px solid var(--border-light-color);
+             padding-bottom: 5px;
+         }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            width: 98%;
+            max-width: 1500px; /* Even wider */
+            gap: 30px; /* Increased gap */
+        }
+
+        .card { /* Renamed for clarity */
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            border-radius: 8px;
+            background-color: var(--secondary-bg);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05); /* Lighter shadow */
+        }
+
+        .editor {
+            flex: 3;
+            min-width: 550px; /* Wider editor */
+        }
+
+        .calculator {
+            flex: 2;
+            min-width: 400px;
+        }
+
+        #network-canvas {
+            width: 100%;
+            height: 600px; /* Even taller canvas */
+            border: 1px solid var(--border-color);
+            margin-top: 15px;
+            background-color: #fdfdfd;
+             border-radius: 5px;
+        }
+
+        #toolbar {
+            margin-bottom: 15px; /* Space below toolbar */
+        }
+
+        #toolbar button, .calculator button {
+            margin: 5px 4px;
+            padding: 8px 14px; /* Adjusted padding */
+            cursor: pointer;
+            border: 1px solid var(--button-border);
+            border-radius: 4px;
+            background-color: var(--button-bg);
+            color: var(--text-color);
+            font-size: 0.9em; /* Slightly smaller font */
+            transition: background-color 0.2s ease, box-shadow 0.2s ease;
+        }
+         #toolbar button:hover, .calculator button:hover {
+             background-color: var(--button-hover-bg);
+             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+         }
+         #toolbar button:active, .calculator button:active {
+             background-color: var(--button-active-bg);
+             box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+         }
+        .calculator button {
+            display: inline-block;
+            margin-bottom: 10px;
+            margin-right: 5px;
+        }
+        button:disabled {
+            cursor: not-allowed;
+            background-color: #e9ecef;
+            opacity: 0.7;
+            box-shadow: none;
+        }
+
+        .calc-section { /* Group calculation buttons */
+             margin-bottom: 10px;
+        }
+        .check-section { /* Group check buttons */
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border-light-color);
+        }
+
+
+        .output-area {
+            margin-top: 8px;
+            padding: 12px;
+            border: 1px solid var(--border-light-color);
+            min-height: 60px;
+            max-height: 220px; /* Consistent max height */
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            font-family: var(--monospace-font);
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 0.85em; /* Slightly smaller text in output */
+            border-radius: 4px;
+            line-height: 1.45;
+        }
+        /* Removed check-result specific styles */
+
+        #status-line {
+            margin-top: 15px; /* More space */
+            font-style: italic;
+            color: #6c757d; /* Bootstrap's muted color */
+            font-size: 0.9em;
+            min-height: 1.2em;
+            text-align: center;
+        }
+
+        /* --- vis-network Specific Styles --- */
+        .vis-network .vis-node.vis-selected {
+            border-width: 3px !important;
+            border-color: var(--error-color) !important; /* Error color for selection */
+        }
+         .vis-network .vis-edge.vis-selected {
+            color: var(--error-color) !important;
+            width: 3px !important;
+         }
+
+        /* Removed highlight styles */
+
+        /* Style for initial node (applied via JS) */
+        /* .initial-node-style properties will be set via JS */
+
+        /* --- End Embedded CSS --- */
+    </style>
+</head>
+<body>
+    <h1>Transition System Region Finder & Checks</h1>
+
+    <div class="container">
+        <div class="editor card">
+            <h2>Editor <small>(Click node -> click different node for transition; Double-click to edit)</small></h2>
+            <div id="toolbar">
+                <button onclick="addState()">Add State</button>
+                <button onclick="setInitial()">Set Initial (select)</button>
+                <button onclick="deleteSelected()">Delete Selected</button>
+                 <button onclick="clearAll()">Clear All</button>
+            </div>
+            <div id="network-canvas"></div>
+            <p id="status-line">Status: Ready</p>
+        </div>
+
+        <div class="calculator card">
+            <h2>Calculations & Checks</h2>
+             <div class="calc-section">
+                <button id="calc-all-btn" onclick="calculateAllRegions()">Calculate All Regions</button>
+                <button id="calc-min-btn" onclick="calculateMinimalRegions()">Calculate Min Regions</button>
+             </div>
+             <div class="check-section">
+                <button id="check-ss-btn" onclick="checkStateSeparation()">Check State Separation</button>
+                <button id="check-fc-btn" onclick="checkForwardClosure()">Check Forward Closure</button>
+             </div>
+
+
+            <h3>State Separation Check:</h3>
+            <div id="state-separation-output" class="output-area">Calculate 'All Regions' first.</div>
+
+             <h3>Forward Closure Check:</h3>
+            <div id="forward-closure-output" class="output-area">Calculate 'Min Regions' first.</div>
+
+            <h3 style="margin-top: 20px;">All Regions (incl. trivial Ø, S):</h3>
+            <div id="all-regions-output" class="output-area">Draw a system and click 'Calculate All Regions'</div>
+
+            <h3>Minimal Non-Trivial Regions:</h3>
+            <div id="minimal-regions-output" class="output-area">Click 'Calculate Min Regions' (after 'All Regions')</div>
+        </div>
+    </div>
+
+    <script>
+        // --- Start Embedded JavaScript ---
+
+        // --- Global State & Initialization (Mostly unchanged) ---
+        let nodes = new vis.DataSet([]);
+        let edges = new vis.DataSet([]);
+        let initialStateId = null;
+        let network = null;
+        let stateCounter = 0;
+        let transitionSourceNode = null;
+        let clickTimeoutId = null;
+        let cachedAllRegions = null;
+        let cachedMinimalRegions = null;
+        let isCalculating = false;
+
+        // --- Vis-network options ---
+        const visOptions = {
+             nodes: { shape: 'ellipse', borderWidth: 2, font: { size: 14, color: '#333' },
+                      color: { border: '#bdc3c7', background: '#ecf0f1',
+                               highlight:{ border: '#e74c3c', background: '#f8d7da' }, // Lighter red highlight background
+                               hover: { border: '#3498db', background: '#eaf4fc'} } }, // Lighter blue hover
+            edges: { arrows: 'to', font: { align: 'top', size: 12, color: '#34495e' },
+                     color: { color:'#95a5a6', highlight:'#e74c3c', hover: '#3498db', inherit: false },
+                     smooth: { enabled: true, type: "continuous", roundness: 0.2 }, width: 2 },
+            physics: { enabled: true, solver: 'barnesHut',
+                       barnesHut: { gravitationalConstant: -3000, springLength: 110, // Adjusted for potentially closer nodes
+                                    springConstant: 0.05, damping: 0.09, avoidOverlap: 0.15 }, // Slightly more avoidance
+                       stabilization: { iterations: 250 } },
+            interaction: { selectConnectedEdges: false, hover: true, navigationButtons: true, keyboard: true },
+            manipulation: { enabled: false }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const container = document.getElementById('network-canvas');
+            const data = { nodes: nodes, edges: edges };
+            network = new vis.Network(container, data, visOptions);
+            network.on("click", handleClick);
+            network.on("doubleClick", handleDoubleClick);
+            network.on("stabilizationIterationsDone", handleStabilizationDone);
+            setStatus("Ready.");
+        });
+
+        // --- Event Handlers (handleClick, handleDoubleClick, handleStabilizationDone - Unchanged) ---
+        function handleClick(params){if(clickTimeoutId){clearTimeout(clickTimeoutId);clickTimeoutId=null;}const n=params.nodes.length===1?params.nodes[0]:null;const e=params.edges.length===1?params.edges[0]:null;if(n){clickTimeoutId=setTimeout(()=>{if(transitionSourceNode){if(n!==transitionSourceNode){finishAddTransition(n);}else{resetTransitionState();setStatus(`Selection cancelled (clicked source ${n} again). Ready.`);network.selectNodes([n]);}}else{transitionSourceNode=n;setStatus(`Selected state ${nodes.get(n)?.label||n} as source. Click target.`);}clickTimeoutId=null;},250);}else if(e){resetTransitionState();setStatus(`Selected transition. Double-click edit.`);}else{resetTransitionState();network.unselectAll();setStatus("Ready.");}}
+        function handleDoubleClick(params){if(clickTimeoutId){clearTimeout(clickTimeoutId);clickTimeoutId=null;}const n=params.nodes.length===1?params.nodes[0]:null;const e=params.edges.length===1?params.edges[0]:null;resetTransitionState();if(n)editStateLabel(n);else if(e)editEdgeLabel(e);}
+        function handleStabilizationDone(){network.setOptions({physics:false});if(document.getElementById('status-line').innerText.includes("Stabilizing"))setStatus("Layout stabilized. Ready.");}
+
+        // --- UI Helpers ---
+        function setStatus(message){document.getElementById('status-line').innerText=`Status: ${message}`;}
+        function getSelectedNodeId(){return network.getSelectedNodes()[0]||null;}
+        function getSelectedEdgeId(){return network.getSelectedEdges()[0]||null;}
+        function resetTransitionState(){transitionSourceNode=null;}
+
+        // Helper to apply visual style for initial node
+        function setInitialNodeStyle(nodeId) {
+            if (nodeId && nodes.get(nodeId)) {
+                nodes.update({
+                    id: nodeId,
+                    borderWidth: 3, // Keep thicker border
+                    color: {
+                        border: '#007bff', // Vis-network's primary blue
+                        background: '#e7f3ff', // Very light blue background
+                        highlight: { border: '#e74c3c', background: '#f8d7da' }, // Keep selection highlight
+                        hover: { border: '#007bff', background: '#e7f3ff' } // Keep hover same as default initial
+                     }
+                });
+            }
+        }
+        // Helper to reset node style to default
+        function resetNodeStyle(nodeId) {
+             if (nodeId && nodes.get(nodeId)) {
+                // Reset to the default defined in visOptions
+                nodes.update({
+                    id: nodeId,
+                    borderWidth: 2,
+                    color: {
+                        border: '#bdc3c7',
+                        background: '#ecf0f1',
+                        highlight: { border: '#e74c3c', background: '#f8d7da' },
+                        hover: { border: '#3498db', background: '#eaf4fc' }
+                     }
+                });
+             }
+        }
+
+        // --- Editor Functions (mostly same, adjusted status messages) ---
+        function addState(){const n=`s${stateCounter++}`;try{nodes.add({id:n,label:n});if(nodes.length===1&&initialStateId===null){setInitialInternal(n);setStatus(`Added state '${n}' (initial).`);}else{setStatus(`Added state '${n}'.`);}network.fit();}catch(e){alert(`Error: ${e}`);}}
+        function setInitialInternal(nId){if(nId===initialStateId)return;if(initialStateId!==null)resetNodeStyle(initialStateId);initialStateId=nId;setInitialNodeStyle(initialStateId);setStatus(`State '${nodes.get(initialStateId)?.label||initialStateId}' set as initial.`);network.unselectAll();}
+        function setInitial(){const s=getSelectedNodeId();if(!s)alert("Select state first.");else setInitialInternal(s);}
+        function finishAddTransition(tId){if(!transitionSourceNode||transitionSourceNode===tId){resetTransitionState();return;}const s=transitionSourceNode;resetTransitionState();const l=prompt(`Label for '${nodes.get(s)?.label||s}' -> '${nodes.get(tId)?.label||tId}':`,"event");if(l===null||l.trim()===''){setStatus("Transition cancelled. Ready.");return;}const cL=l.trim();try{const x=edges.get({filter:i=>i.from===s&&i.to===tId&&i.label===cL});if(x.length>0){alert(`Transition exists.`);setStatus("Ready.");}else{edges.add({from:s,to:tId,label:cL,font:{size:12},width:2});setStatus(`Added '${nodes.get(s)?.label||s}' -(${cL})-> '${nodes.get(tId)?.label||tId}'. Ready.`);}}catch(e){alert(`Error: ${e}`);setStatus("Error.");}}
+        function editStateLabel(nId){const n=nodes.get(nId);if(!n)return;const oL=n.label;const nL=prompt(`New name for '${oL}' (ID: ${n.id}):`,oL);network.unselectAll();if(nL!==null&&nL.trim()!==''&&nL.trim()!==oL){const cL=nL.trim();nodes.update({id:nId,label:cL});setStatus(`Renamed '${oL}' to '${cL}'.`);}else if(nL!==null&&nL.trim()==='')alert("Name cannot be empty.");else setStatus("Rename cancelled/unchanged.");}
+        function editEdgeLabel(eId){const e=edges.get(eId);if(!e)return;const oL=e.label||"";const nL=prompt(`New label for ${nodes.get(e.from)?.label||e.from}->${nodes.get(e.to)?.label||e.to}:`,oL);network.unselectAll();if(nL!==null&&nL.trim()!==oL){const cL=nL.trim();edges.update({id:eId,label:cL});setStatus(`Relabeled to '${cL}'.`);}else if(nL!==null&&nL.trim()===''&&oL!==''){edges.update({id:eId,label:''});setStatus(`Label removed.`);}else setStatus("Relabel cancelled/unchanged.");}
+        function deleteSelected(){const s=network.getSelection();const nD=s.nodes,eD=s.edges;let d=false,m="";if(nD.length>0){if(nD.includes(initialStateId))initialStateId=null;const labels=nD.map(id=>nodes.get(id)?.label||id);nodes.remove(nD);m+=`Deleted node(s): ${labels.join(', ')}. `;d=true;}if(eD.length>0){edges.remove(eD);m+=`Deleted edge(s). `;d=true;}if(!d)setStatus("Nothing selected.");else setStatus(m.trim()+" Ready.");network.unselectAll();}
+        function clearAll(){if(confirm("Clear canvas?")){nodes.clear();edges.clear();initialStateId=null;stateCounter=0;cachedAllRegions=null;cachedMinimalRegions=null;document.getElementById('all-regions-output').textContent='...';document.getElementById('minimal-regions-output').textContent='...';document.getElementById('state-separation-output').textContent='...';document.getElementById('forward-closure-output').textContent='...';setStatus("Cleared. Ready.");}}
+
+        // --- Calculation Logic (getTransitionSystemData, getPowerSet, isRegion - Unchanged) ---
+        function getTransitionSystemData(){const t={states:new Set(nodes.getIds()),events:new Set(),transitions:[],initialState:initialStateId};edges.forEach(e=>{if(nodes.get(e.from)&&nodes.get(e.to)){const l=e.label||'';t.transitions.push({source:e.from,target:e.to,event:l});if(l)t.events.add(l);}});return t;}
+        function getPowerSet(s){const e=Array.from(s),p=[],n=1<<e.length;for(let i=0;i<n;i++){const sub=new Set();for(let j=0;j<e.length;j++)if((i>>j)&1)sub.add(e[j]);p.push(sub);}return p;}
+        function isRegion(sub,ts){if(sub.size===0||sub.size===ts.states.size)return true;for(const ev of ts.events){const tr=ts.transitions.filter(t=>t.event===ev);if(tr.length<2)continue;for(let i=0;i<tr.length;i++){for(let j=i+1;j<tr.length;j++){const t0=tr[i],t1=tr[j];const s0in=sub.has(t0.source),s0pin=sub.has(t0.target);const s1in=sub.has(t1.source),s1pin=sub.has(t1.target);if((s0in&&!s0pin)!==(s1in&&!s1pin))return false;if((!s0in&&s0pin)!==(!s1in&&s1pin))return false;}}}return true;}
+        function setIntersection(arrayOfSets){if(!arrayOfSets||arrayOfSets.length===0)return new Set();const intersection=new Set(arrayOfSets[0]);for(let i=1;i<arrayOfSets.length;i++)for(const elem of intersection)if(!arrayOfSets[i].has(elem))intersection.delete(elem);return intersection;}
+        function areSetsEqual(setA,setB){if(setA.size!==setB.size)return false;for(const item of setA)if(!setB.has(item))return false;return true;}
+
+        // --- Calculation Trigger Functions ---
+        function setCalculationButtonsDisabled(disabled){ document.getElementById('calc-all-btn').disabled=disabled;document.getElementById('calc-min-btn').disabled=disabled;document.getElementById('check-ss-btn').disabled=disabled;document.getElementById('check-fc-btn').disabled=disabled;}
+        function formatRegionSet(regionSet, nodeMap){if(regionSet.size===0)return'Ø';const labels=[...regionSet].map(id=>nodeMap.get(id)||`[${id}]`).sort((a,b)=>a.localeCompare(b));return`{${labels.join(', ')}}`;}
+        function calculateAllRegions(){if(isCalculating)return;isCalculating=true;setCalculationButtonsDisabled(true);setStatus("Calculating regions...");const o=document.getElementById('all-regions-output');o.textContent='Calculating...';cachedAllRegions=null;cachedMinimalRegions=null;document.getElementById('minimal-regions-output').textContent='...';document.getElementById('state-separation-output').textContent='...';document.getElementById('forward-closure-output').textContent='...';setTimeout(()=>{const t=getTransitionSystemData(),nM=new Map(nodes.get({returnType:'Array'}).map(n=>[n.id,n.label]));if(t.states.size===0){o.textContent='No states.';setStatus("Ready");setCalculationButtonsDisabled(false);isCalculating=false;return;}const l=14;if(t.states.size>l&&!confirm(`Warn: ${t.states.size} states > ${l}. Calc may crash. Continue?`)){o.textContent='Cancelled.';setStatus("Ready");setCalculationButtonsDisabled(false);isCalculating=false;return;}try{const p=getPowerSet(t.states),a=[];for(const s of p)if(isRegion(s,t))a.push(s);cachedAllRegions=a;let x=`Found ${a.length} regions:\n`;a.sort((a,b)=>a.size-b.size||formatRegionSet(a,nM).localeCompare(formatRegionSet(b,nM)));a.forEach(r=>{let rS=formatRegionSet(r,nM);if(r.size===t.states.size&&t.states.size>0)rS=`S = ${rS}`;x+=`${rS}\n`;});o.textContent=x;setStatus(`Found ${a.length} regions.`);}catch(e){console.error(e);o.textContent="Error.";setStatus("Error.");}finally{setCalculationButtonsDisabled(false);isCalculating=false;}},50);}
+        function calculateMinimalRegions(){if(isCalculating)return;isCalculating=true;setCalculationButtonsDisabled(true);setStatus("Calculating minimal regions...");const o=document.getElementById('minimal-regions-output');o.textContent='Calculating...';cachedMinimalRegions=null;const r=cachedAllRegions;if(!r){alert("Calc 'All Regions' first.");o.textContent='';setStatus("Ready");setCalculationButtonsDisabled(false);isCalculating=false;return;}setTimeout(()=>{const t=getTransitionSystemData(),nM=new Map(nodes.get({returnType:'Array'}).map(n=>[n.id,n.label]));if(t.states.size===0){o.textContent='No states.';setStatus("Ready");setCalculationButtonsDisabled(false);isCalculating=false;return;}try{const nT=r.filter(reg=>reg.size>0&&reg.size<t.states.size),m=[];if(nT.length===0){o.textContent='No non-trivial regions.';setStatus("No minimal regions.");setCalculationButtonsDisabled(false);isCalculating=false;return;}for(let i=0;i<nT.length;i++){const c=nT[i];let min=true;for(let j=0;j<nT.length;j++){if(i===j)continue;const oR=nT[j];if(oR.size<c.size){let sub=true;for(const el of oR)if(!c.has(el)){sub=false;break;}if(sub){min=false;break;}}}if(min)m.push(c);}cachedMinimalRegions=m;let x=`Found ${m.length} minimal non-trivial regions:\n`;m.sort((a,b)=>a.size-b.size||formatRegionSet(a,nM).localeCompare(formatRegionSet(b,nM)));m.forEach(reg=>{x+=`${formatRegionSet(reg,nM)}\n`;});if(m.length===0&&nT.length>0)x="No minimal regions (all contain others).";else if(m.length===0)x="No non-trivial regions found.";o.textContent=x;setStatus(`Found ${m.length} minimal non-trivial regions.`);}catch(e){console.error(e);o.textContent="Error.";setStatus("Error.");}finally{setCalculationButtonsDisabled(false);isCalculating=false;}},10);}
+
+        // --- Check Functions ---
+        function getRegionsContainingState(stateId,allRegions,nodeMap){const rS=new Set();if(!allRegions)return rS;allRegions.forEach(r=>{if(r.has(stateId)){const rStr=formatRegionSet(r,nodeMap);rS.add(rStr);}});return rS;}
+
+        function checkStateSeparation(){if(isCalculating)return;setStatus("Checking State Separation...");const o=document.getElementById('state-separation-output');o.textContent='Checking...';isCalculating=true;setCalculationButtonsDisabled(true);if(!cachedAllRegions){alert("Calc 'All Regions' first.");o.textContent="Requires 'All Regions'.";setStatus("Ready");setCalculationButtonsDisabled(false);isCalculating=false;return;}setTimeout(()=>{const t=getTransitionSystemData(),nM=new Map(nodes.get({returnType:'Array'}).map(n=>[n.id,n.label])),sIds=Array.from(t.states);let h=true,vP=null;if(sIds.length<2){o.textContent="Holds (trivial).";setStatus("Check finished.");setCalculationButtonsDisabled(false);isCalculating=false;return;}const sRM=new Map();sIds.forEach(sId=>sRM.set(sId,getRegionsContainingState(sId,cachedAllRegions,nM)));for(let i=0;i<sIds.length;i++){for(let j=i+1;j<sIds.length;j++){const s1=sIds[i],s2=sIds[j];const r1=sRM.get(s1),r2=sRM.get(s2);if(areSetsEqual(r1,r2)){h=false;vP=[s1,s2];break;}}if(!h)break;}if(h){o.textContent="✅ Property Holds.";setStatus("Check finished: Holds.");}else{const s1L=nM.get(vP[0])||`[${vP[0]}]`,s2L=nM.get(vP[1])||`[${vP[1]}]`;o.textContent=`❌ Property Does Not Hold:\nStates '${s1L}' and '${s2L}' have identical region sets.`;setStatus("Check finished: Does not hold.");}setCalculationButtonsDisabled(false);isCalculating=false;},10);}
+        function checkForwardClosure(){if(isCalculating)return;setStatus("Checking Forward Closure...");const o=document.getElementById('forward-closure-output');o.textContent='Checking...';isCalculating=true;setCalculationButtonsDisabled(true);if(!cachedMinimalRegions){alert("Calc 'Minimal Regions' first.");o.textContent="Requires 'Minimal Regions'.";setStatus("Ready");setCalculationButtonsDisabled(false);isCalculating=false;return;}setTimeout(()=>{const t=getTransitionSystemData(),nM=new Map(nodes.get({returnType:'Array'}).map(n=>[n.id,n.label]));let h=true,vE=null,vS=null;if(t.events.size===0||t.states.size===0){o.textContent="✅ Holds (trivial).";setStatus("Check finished.");setCalculationButtonsDisabled(false);isCalculating=false;return;}for(const ev of t.events){const evT=t.transitions.filter(t=>t.event===ev);if(evT.length===0)continue;const preR=[];for(const r of cachedMinimalRegions){let isPre=true;if(r.size===0)continue;for(const tr of evT)if(!r.has(tr.source)||r.has(tr.target)){isPre=false;break;}if(isPre)preR.push(r);}if(preR.length===0)continue;const iS=setIntersection(preR);if(iS.size===0)continue;for(const sId of iS){const hasOut=t.transitions.some(tr=>tr.source===sId&&tr.event===ev);if(!hasOut){h=false;vE=ev;vS=sId;break;}}if(!h)break;}if(h){o.textContent="✅ Property Holds.";setStatus("Check finished: Holds.");}else{const sL=nM.get(vS)||`[${vS}]`;o.textContent=`❌ Property Does Not Hold:\nEvent '${vE}': State '${sL}' is in intersection of minimal pre-regions but lacks outgoing '${vE}' transition.`;setStatus("Check finished: Does not hold.");}setCalculationButtonsDisabled(false);isCalculating=false;},10);}
+
+        // --- Highlighting Logic (Removed) ---
+        // Functions toggleHighlighting, applyRegionHighlighting, clearRegionHighlighting are removed.
+        // Calls to clearRegionHighlighting in calculation functions are removed.
+        // HTML checkboxes and CSS highlight classes are removed.
+
+        // --- End Embedded JavaScript ---
+    </script>
+</body>
+</html>
